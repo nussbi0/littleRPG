@@ -1,9 +1,9 @@
 var context = document.getElementById('tutorial').getContext('2d');
 
 var map = {
-    cols: 64,
-    rows: 64,
     tsize: 16,
+    cols: 0,
+    rows: 0,
     tiles: [],
     getTile: function (col, row) {
         return this.tiles[row * map.cols + col];
@@ -33,6 +33,10 @@ var map = {
         return row * this.tsize;
     }
 };
+
+//set row and cols based on canvas size
+map.cols = context.canvas.width / map.tsize;
+map.rows = context.canvas.width / map.tsize;
 
 for (var c = 0; c < map.cols; c++) {
     for (var r = 0; r < map.rows; r++) {
@@ -113,46 +117,102 @@ Keyboard.isDown = function (keyCode) {
 };
 
 
-function Hero(map, x, y) {
-    this.map = map;
-    this.x = x;
-    this.y = y;
-    this.width = 16;
-    this.height = 32;
+class Hero {
+    constructor(map, x, y) {
+        this.map = map;
+        this.x = x;
+        this.y = y;
+        this.width = 16;
+        this.height = 32;
 
-    this.xTile = this.x;
-    this.yTile = this.y;
+        this.speed = 16;
 
-    this.image = Loader.getImage('character');
+        this.spriteX = 0;
+        this.spriteY = 0;
+
+        this.xTile = this.x;
+        this.yTile = this.y;
+
+        this.image = Loader.getImage('character');
+    }
 };
 
-Hero.SPEED = 16; // pixels per second
+class Enemy extends Hero {
+    constructor(map, x, y) {
+        super(map, x, y);
+
+        this.height = 16;
+        this.image = Loader.getImage('monster');
+        this.isMoving = false;
+        this.speed = 8;
+
+        this.startX = x;
+        this.startY = y;
+
+        this.targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
+        this.targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
+    }
+}
 
 Hero.prototype.move = function (delta, dirx, diry) {
-    // if diagonal movement
+    // if diagonal movement, slow speed down a bit
     if (dirx != 0 && diry != 0) {
         dirx *= 0.707;
         diry *= 0.707;
     }
 
-    //TODO: change sprite
-    
+    // change sprite
+    if (dirx > 0) {
+        this.spriteX = 0;
+        this.spriteY = 32;
+    }
+    if (dirx < 0) {
+        this.spriteX = 0;
+        this.spriteY = 96;
+    }
+    if (diry > 0) {
+        this.spriteX = 0;
+        this.spriteY = 0;
+    }
+    if (diry < 0) {
+        this.spriteX = 0;
+        this.spriteY = 64;
+    }
 
     // move hero
-    this.x += dirx * Hero.SPEED * delta;
-    this.y += diry * Hero.SPEED * delta;
+    this.x += dirx * this.speed * delta;
+    this.y += diry * this.speed * delta;
 
     // check if we walked into a non-walkable tile
     // this._collide(dirx, diry);
 
     // clamp values
-    var maxX = this.map.cols * this.map.tsize;
-    var maxY = this.map.rows * this.map.tsize;
-    this.x = Math.max(0, Math.min(this.x, maxX));
-    this.y = Math.max(0, Math.min(this.y, maxY));
+    // var maxX = this.map.cols * this.map.tsize;
+    // var maxY = this.map.rows * this.map.tsize;
+    var maxX = this.map.cols;
+    var maxY = this.map.rows;
+    // this.x = Math.max(0, Math.min(this.x, maxX));
+    // this.y = Math.max(0, Math.min(this.y, maxY));
 
     this.xTile = Math.floor(this.x);
     this.yTile = Math.floor(this.y);
+
+    if (this.x >= maxX - 1) {
+        // console.log('left to the right');
+        this.x = maxX - 1;
+    }
+    if (this.y >= maxY - 2) {
+        // console.log('left to the bottom');
+        this.y = maxY - 2;
+    }
+    if (this.x <= 0) {
+        // console.log('left to the left');
+        this.x = 0;
+    }
+    if (this.y <= 0) {
+        // console.log('left to the top');
+        this.y = 0;
+    }
 };
 
 var Game = {};
@@ -172,8 +232,6 @@ Game.tick = function (elapsed) {
     window.requestAnimationFrame(this.tick);
 
     // clear previous frame
-    this.ctx.canvas.width = window.innerWidth;
-    this.ctx.canvas.height = window.innerHeight;
     this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
 
     // compute delta time in seconds -- also cap it
@@ -189,7 +247,8 @@ Game.tick = function (elapsed) {
 Game.load = function () {
     return [
         Loader.loadImage('tiles', 'assets/overworld.png'),
-        Loader.loadImage('character', 'assets/character.png')
+        Loader.loadImage('character', 'assets/character.png'),
+        Loader.loadImage('monster', 'assets/monsters.png')
     ];
 };
 
@@ -198,11 +257,10 @@ Game.init = function () {
         [Keyboard.LEFT, Keyboard.RIGHT, Keyboard.UP, Keyboard.DOWN]);
     this.tileAtlas = Loader.getImage('tiles');
 
-    this.hero = new Hero(map, 31, 32);
-
-    // this.tileAtlas = Loader.getImage('tiles');
-    // this.hero.image = Loader.getImage('character');
-    // this.hero = {x: 256, y: 256, image: Loader.getImage('character'), moveTo: function(x,y){this.x = 16*x;this.y = 16*y}};
+    this.hero = new Hero(map, (this.ctx.canvas.width / map.tsize - 1) / 2, (this.ctx.canvas.height / map.tsize) / 2);
+    
+    this.enemies = [];
+    this.enemies.push(new Enemy(map, Math.floor(Math.random() * (this.ctx.canvas.width / map.tsize - 1)) + 0, Math.floor(Math.random() * (this.ctx.canvas.height / map.tsize)) + 0));
 };
 
 Game.update = function (delta) {
@@ -212,18 +270,47 @@ Game.update = function (delta) {
 
     if (Keyboard.isDown(Keyboard.LEFT)) {
         dirx = -1;
-    }
-    else if (Keyboard.isDown(Keyboard.RIGHT)) {
+    } else if (Keyboard.isDown(Keyboard.RIGHT)) {
         dirx = 1;
     }
     if (Keyboard.isDown(Keyboard.UP)) {
         diry = -1;
-    }
-    else if (Keyboard.isDown(Keyboard.DOWN)) {
+    } else if (Keyboard.isDown(Keyboard.DOWN)) {
         diry = 1;
     }
 
     this.hero.move(delta, dirx, diry);
+    // console.log(this.hero.x, this.hero.y);
+
+    for (var e in this.enemies) {
+        if (this.enemies[e].isMoving) {
+            // var e_distX = this.enemies[e].targetX - this.enemies[e].startX;
+            // var e_distY = this.enemies[e].targetY - this.enemies[e].startY;
+
+            // var angle = Math.atan2(e_distY, e_distX);
+
+            // e_distX = Math.cos(angle) * 1;
+            // e_distY = Math.sin(angle) * 1;
+            // // var dist = Math.sqrt(e_distX * e_distX + e_distY * e_distY);
+
+            // this.enemies[e].isMoving = true;
+            //if(this.enemies[e].targetX > this.enemies[e].x) {dirx=1};
+            this.enemies[e].move(delta, dirx, diry);
+            // console.log(this.enemies[e].x, this.enemies[e].y);
+
+            if (this.enemies[e].x = this.enemies[e].targetX && this.enemies[e].y == this.enemies[e].targetY) {
+                this.enemies[e].isMoving = false;
+                this.enemies[e].targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
+                this.enemies[e].targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
+            }
+        } else {
+            this.enemies[e].targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
+            this.enemies[e].targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
+            this.enemies[e].isMoving = true;
+        }
+
+
+    }
     // this.camera.update();
 };
 
@@ -247,9 +334,11 @@ Game.render = function () {
         }
     }
 
-    // this.ctx.drawImage(this.hero.image, this.hero.screenX - this.hero.width / 2, this.hero.screenY - this.hero.height / 2);
-    // console.log(this.hero)
-    this.ctx.drawImage(this.hero.image, 0, 0, 16, 32, this.hero.x * 16, this.hero.y * 16, 16, 32)
+    this.ctx.drawImage(this.hero.image, this.hero.spriteX, this.hero.spriteY, this.hero.width, this.hero.height, this.hero.x * this.hero.width, this.hero.y * this.hero.width, this.hero.width, this.hero.height)
+
+    for (var e in this.enemies) {
+        this.ctx.drawImage(this.enemies[e].image, 0, 0, this.enemies[e].width, this.enemies[e].height, this.enemies[e].x * this.enemies[e].width, this.enemies[e].y * this.enemies[e].height, this.enemies[e].width, this.enemies[e].height);
+    }
 }
 
 //
@@ -260,9 +349,13 @@ window.onload = function () {
     var canvas = document.getElementById('tutorial')
     var context = canvas.getContext('2d');
 
+    // no blurrs :)
+    context.webkitImageSmoothingEnabled = false;
+    context.imageSmoothingEnabled = false;
+
     Game.run(context);
 
-    canvas.addEventListener('mouseup', function (event) {
+    canvas.addEventListener('mousedown', function (event) {
         // moveHero(canvas, event);
         var mousePos = getMousePos(canvas, event);
         console.log('Mouse position: ' + Math.floor(mousePos.x / 16) + ',' + Math.floor(mousePos.y / 16));
