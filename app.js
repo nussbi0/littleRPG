@@ -134,6 +134,13 @@ class Hero {
         this.yTile = this.y;
 
         this.image = Loader.getImage('character');
+
+        this.sectors = {
+            right: {},
+            bottom: {},
+            left: {},
+            top: {}
+        };
     }
 };
 
@@ -144,7 +151,7 @@ class Enemy extends Hero {
         this.height = 16;
         this.image = Loader.getImage('monster');
         this.isMoving = false;
-        this.speed = 8;
+        this.speed = 4;
 
         this.startX = x;
         this.startY = y;
@@ -152,6 +159,51 @@ class Enemy extends Hero {
         this.targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
         this.targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
     }
+}
+
+Enemy.prototype.move = function (delta, target_x, target_y) {
+    var dirx = target_x - this.x;
+    var diry = target_y - this.y;
+
+    // Normalize
+    var dirLength = Math.sqrt((dirx * dirx) + (diry * diry));
+    dirx = dirx / dirLength;
+    diry = diry / dirLength;
+
+    // Move towards the player
+    this.x += dirx * this.speed * delta;
+    this.y += diry * this.speed * delta;
+
+    if (this.x >= this.map.cols - 1) {
+        // console.log('left to the right');
+        this.x = this.map.cols - 1;
+    }
+    if (this.y >= this.map.rows - 1) {
+        // console.log('left to the bottom');
+        this.y = this.map.rows - 1;
+    }
+    if (this.x <= 0) {
+        // console.log('left to the left');
+        this.x = 0;
+    }
+    if (this.y <= 0) {
+        // console.log('left to the top');
+        this.y = 0;
+    }
+}
+
+function distance(entity) {
+    var x = entity.targetX - entity.x,
+        y = entity.targetY - entity.y,
+        dist = Math.sqrt(x * x + y * y),
+        collision = false;
+
+    // check the distance against the sum of both objects radius. If its less its a hit
+    if (dist < 2 + 2) {
+        collision = true;
+    }
+
+    return collision;
 }
 
 Hero.prototype.move = function (delta, dirx, diry) {
@@ -191,8 +243,6 @@ Hero.prototype.move = function (delta, dirx, diry) {
     // var maxY = this.map.rows * this.map.tsize;
     var maxX = this.map.cols;
     var maxY = this.map.rows;
-    // this.x = Math.max(0, Math.min(this.x, maxX));
-    // this.y = Math.max(0, Math.min(this.y, maxY));
 
     this.xTile = Math.floor(this.x);
     this.yTile = Math.floor(this.y);
@@ -215,7 +265,10 @@ Hero.prototype.move = function (delta, dirx, diry) {
     }
 };
 
-var Game = {};
+var Game = {
+    mX: 0,
+    mY: 0,
+};
 
 Game.run = function (context) {
     this.ctx = context;
@@ -258,7 +311,8 @@ Game.init = function () {
     this.tileAtlas = Loader.getImage('tiles');
 
     this.hero = new Hero(map, (this.ctx.canvas.width / map.tsize - 1) / 2, (this.ctx.canvas.height / map.tsize) / 2);
-    
+    this.hero.radius = new Radius(this.hero.x, this.hero.y, 50);
+
     this.enemies = [];
     this.enemies.push(new Enemy(map, Math.floor(Math.random() * (this.ctx.canvas.width / map.tsize - 1)) + 0, Math.floor(Math.random() * (this.ctx.canvas.height / map.tsize)) + 0));
 };
@@ -280,39 +334,28 @@ Game.update = function (delta) {
     }
 
     this.hero.move(delta, dirx, diry);
-    // console.log(this.hero.x, this.hero.y);
 
-    for (var e in this.enemies) {
-        if (this.enemies[e].isMoving) {
-            // var e_distX = this.enemies[e].targetX - this.enemies[e].startX;
-            // var e_distY = this.enemies[e].targetY - this.enemies[e].startY;
+    this.enemies.forEach(function (enemy) {
+        enemy.move(delta, enemy.targetX, enemy.targetY);
+        if (distance(enemy)) {
+            enemy.targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
+            enemy.targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
 
-            // var angle = Math.atan2(e_distY, e_distX);
-
-            // e_distX = Math.cos(angle) * 1;
-            // e_distY = Math.sin(angle) * 1;
-            // // var dist = Math.sqrt(e_distX * e_distX + e_distY * e_distY);
-
-            // this.enemies[e].isMoving = true;
-            //if(this.enemies[e].targetX > this.enemies[e].x) {dirx=1};
-            this.enemies[e].move(delta, dirx, diry);
-            // console.log(this.enemies[e].x, this.enemies[e].y);
-
-            if (this.enemies[e].x = this.enemies[e].targetX && this.enemies[e].y == this.enemies[e].targetY) {
-                this.enemies[e].isMoving = false;
-                this.enemies[e].targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
-                this.enemies[e].targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
-            }
         } else {
-            this.enemies[e].targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
-            this.enemies[e].targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
-            this.enemies[e].isMoving = true;
+
         }
-
-
-    }
-    // this.camera.update();
+    });
 };
+
+var Radius = function (x, y, radius) {
+    this.x = x || 0;
+    this.y = y || 0;
+    this.radius = radius || 10;
+}
+
+function toRadians(deg) {
+    return deg * Math.PI / 180
+}
 
 Game.render = function () {
     for (var c = 0; c < map.cols; c++) {
@@ -334,8 +377,77 @@ Game.render = function () {
         }
     }
 
+    // draw hero
     this.ctx.drawImage(this.hero.image, this.hero.spriteX, this.hero.spriteY, this.hero.width, this.hero.height, this.hero.x * this.hero.width, this.hero.y * this.hero.width, this.hero.width, this.hero.height)
 
+    // draw radius
+    this.ctx.fillStyle = "rgba(0,0,255,0.5)";
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(-45), toRadians(55));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.closePath();
+    this.ctx.fill();
+    var right = {
+        start: toRadians(-45),
+        end: toRadians(55),
+        name: "right"
+    };
+    this.hero.sectors.right = right;
+
+    this.ctx.fillStyle = "rgba(244,113,65,0.5)";
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(55), toRadians(145));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.closePath();
+    this.ctx.fill();
+    var bottom = {
+        start: toRadians(55),
+        end: toRadians(145),
+        name: "bottom"
+    };
+    this.hero.sectors.bottom = bottom;
+
+    this.ctx.fillStyle = "rgba(244,217,65,0.5)";
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(145), toRadians(235));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.closePath();
+    this.ctx.fill();
+    var left = {
+        start: toRadians(145),
+        end: toRadians(235),
+        name: "left"
+    };
+    this.hero.sectors.left = left;
+
+    this.ctx.fillStyle = "rgba(238,65,244,0.5)";
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(235), toRadians(-45));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.closePath();
+    this.ctx.fill();
+    var top = {
+        start: toRadians(235),
+        end: toRadians(-45),
+        name: "top"
+    };
+    this.hero.sectors.top = top;
+
+    this.ctx.strokeStyle = "rgb(255,0,0)";
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    var radians = Math.atan2(this.hero.radius.y * this.hero.width, this.hero.radius.x * this.hero.width);
+    var tmx = Game.mX - 50 * Math.cos(radians);
+    var tmy = Game.mY - 50 * Math.sin(radians);
+    this.ctx.lineTo(tmx, tmy);
+    this.ctx.closePath();
+    this.ctx.stroke();
+
+    // draw enemies
     for (var e in this.enemies) {
         this.ctx.drawImage(this.enemies[e].image, 0, 0, this.enemies[e].width, this.enemies[e].height, this.enemies[e].x * this.enemies[e].width, this.enemies[e].y * this.enemies[e].height, this.enemies[e].width, this.enemies[e].height);
     }
@@ -344,6 +456,25 @@ Game.render = function () {
 //
 // start up function
 //
+
+function isInsideSector(point, center, radius, angle1, angle2) {
+    function areClockwise(center, radius, angle, point2) {
+        var point1 = {
+            x: (center.x + radius) * Math.cos(angle),
+            y: (center.y + radius) * Math.sin(angle)
+        };
+        return -point1.x * point2.y + point1.y * point2.x > 0;
+    }
+
+    var relPoint = {
+        x: point.x - center.x,
+        y: point.y - center.y
+    };
+
+    return !areClockwise(center, radius, angle1, relPoint) &&
+        areClockwise(center, radius, angle2, relPoint) &&
+        (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
+}
 
 window.onload = function () {
     var canvas = document.getElementById('tutorial')
@@ -360,7 +491,25 @@ window.onload = function () {
         var mousePos = getMousePos(canvas, event);
         console.log('Mouse position: ' + Math.floor(mousePos.x / 16) + ',' + Math.floor(mousePos.y / 16));
         console.log(Game.hero);
+
+        for (var i in Game.hero.sectors) {
+            if (isInsideSector({
+                    x: mousePos.x / 16,
+                    y: mousePos.y / 16
+                }, {
+                    x: Game.hero.x,
+                    y: Game.hero.y
+                }, 50, Game.hero.sectors[i].start, Game.hero.sectors[i].end)) {
+                console.log(Game.hero.sectors[i].name + ", x:" + mousePos.x + ", Y:" + mousePos.y);
+            }
+        }
+
     }, false);
+
+    canvas.addEventListener("mousemove", function (e) {
+        Game.mX = e.pageX;
+        Game.mY = e.pageY;
+    });
 };
 
 function getMousePos(canvas, evt) {
