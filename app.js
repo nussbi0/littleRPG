@@ -263,6 +263,9 @@ Hero.prototype.move = function (delta, dirx, diry) {
         // console.log('left to the top');
         this.y = 0;
     }
+
+    this.radius.x = this.x;
+    this.radius.y = this.y;
 };
 
 var Game = {
@@ -381,11 +384,11 @@ Game.render = function () {
     this.ctx.drawImage(this.hero.image, this.hero.spriteX, this.hero.spriteY, this.hero.width, this.hero.height, this.hero.x * this.hero.width, this.hero.y * this.hero.width, this.hero.width, this.hero.height)
 
     // draw radius
-    this.ctx.fillStyle = "rgba(0,0,255,0.5)";
+    this.ctx.fillStyle = "rgba(0,0,255,0.3)";
     this.ctx.beginPath();
-    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
-    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(-45), toRadians(55));
-    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
+    this.ctx.arc(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2, this.hero.radius.radius, toRadians(-45), toRadians(55));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
     this.ctx.closePath();
     this.ctx.fill();
     var right = {
@@ -395,11 +398,11 @@ Game.render = function () {
     };
     this.hero.sectors.right = right;
 
-    this.ctx.fillStyle = "rgba(244,113,65,0.5)";
+    this.ctx.fillStyle = "rgba(244,113,65,0.3)";
     this.ctx.beginPath();
-    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
-    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(55), toRadians(145));
-    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
+    this.ctx.arc(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2, this.hero.radius.radius, toRadians(55), toRadians(145));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
     this.ctx.closePath();
     this.ctx.fill();
     var bottom = {
@@ -409,11 +412,11 @@ Game.render = function () {
     };
     this.hero.sectors.bottom = bottom;
 
-    this.ctx.fillStyle = "rgba(244,217,65,0.5)";
+    this.ctx.fillStyle = "rgba(244,217,65,0.3)";
     this.ctx.beginPath();
-    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
-    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(145), toRadians(235));
-    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
+    this.ctx.arc(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2, this.hero.radius.radius, toRadians(145), toRadians(235));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
     this.ctx.closePath();
     this.ctx.fill();
     var left = {
@@ -423,11 +426,11 @@ Game.render = function () {
     };
     this.hero.sectors.left = left;
 
-    this.ctx.fillStyle = "rgba(238,65,244,0.5)";
+    this.ctx.fillStyle = "rgba(238,65,244,0.3)";
     this.ctx.beginPath();
-    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
-    this.ctx.arc(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width, this.hero.radius.radius, toRadians(235), toRadians(-45));
-    this.ctx.lineTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
+    this.ctx.moveTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
+    this.ctx.arc(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2, this.hero.radius.radius, toRadians(235), toRadians(-45));
+    this.ctx.lineTo(this.hero.radius.x * this.hero.width + this.hero.width / 2, this.hero.radius.y * this.hero.width + this.hero.height / 2);
     this.ctx.closePath();
     this.ctx.fill();
     var top = {
@@ -436,16 +439,6 @@ Game.render = function () {
         name: "top"
     };
     this.hero.sectors.top = top;
-
-    this.ctx.strokeStyle = "rgb(255,0,0)";
-    this.ctx.beginPath();
-    this.ctx.moveTo(this.hero.radius.x * this.hero.width, this.hero.radius.y * this.hero.width);
-    var radians = Math.atan2(this.hero.radius.y * this.hero.width, this.hero.radius.x * this.hero.width);
-    var tmx = Game.mX - 50 * Math.cos(radians);
-    var tmy = Game.mY - 50 * Math.sin(radians);
-    this.ctx.lineTo(tmx, tmy);
-    this.ctx.closePath();
-    this.ctx.stroke();
 
     // draw enemies
     for (var e in this.enemies) {
@@ -487,7 +480,6 @@ window.onload = function () {
     Game.run(context);
 
     canvas.addEventListener('mousedown', function (event) {
-        // moveHero(canvas, event);
         var mousePos = getMousePos(canvas, event);
         console.log('Mouse position: ' + Math.floor(mousePos.x / 16) + ',' + Math.floor(mousePos.y / 16));
         console.log(Game.hero);
@@ -497,10 +489,12 @@ window.onload = function () {
                     x: mousePos.x / 16,
                     y: mousePos.y / 16
                 }, {
-                    x: Game.hero.x,
-                    y: Game.hero.y
+                    // x: (Game.hero.radius.x * Game.hero.width + Game.hero.width/2) / 16,
+                    // y: (Game.hero.radius.y * Game.hero.height + Game.hero.height/2) / 16
+                    x: Game.hero.x + Game.hero.width / 16 / 2,
+                    y: Game.hero.y + Game.hero.height / 16 / 2
                 }, 50, Game.hero.sectors[i].start, Game.hero.sectors[i].end)) {
-                console.log(Game.hero.sectors[i].name + ", x:" + mousePos.x + ", Y:" + mousePos.y);
+                console.log(Game.hero.sectors[i].name + ", mouse x:" + mousePos.x / 16 + ", mouse Y:" + mousePos.y);
             }
         }
 
