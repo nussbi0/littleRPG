@@ -10,3 +10,18 @@ html, body {
   margin: 0 auto;
   padding: 20px;
 }
+
+#inventory {
+  font-size: 10px;
+}
+
+.healthbar {
+  position: absolute;
+  width: 35px;
+  height: 2px;
+  border: 0;
+}
+
+.healthbar::-webkit-progress-value{
+  background-color: orange;
+}

@@ -1,4 +1,6 @@
 var context = document.getElementById('tutorial').getContext('2d');
+var inventoryDiv = document.getElementById('inventory');
+var topLayer = document.getElementById('topLayer');
 
 var map = {
     tsize: 16,
@@ -81,6 +83,7 @@ Keyboard.LEFT = 65;
 Keyboard.RIGHT = 68;
 Keyboard.UP = 87;
 Keyboard.DOWN = 83;
+Keyboard.E = 69;
 
 Keyboard._keys = {};
 
@@ -116,6 +119,18 @@ Keyboard.isDown = function (keyCode) {
     return this._keys[keyCode];
 };
 
+class Item {
+    constructor(id, name, name_pl, x, y) {
+        this.x = x
+        this.y = y
+        this.id = id
+        this.Name = name
+        this.NamePlural = name_pl
+        this.width = 16
+        this.height = 16
+        this.image = Loader.getImage('item');
+    }
+}
 
 class Hero {
     constructor(map, x, y) {
@@ -125,10 +140,22 @@ class Hero {
         this.width = 16;
         this.height = 32;
 
+        this.health = 50;
+        this.maxHealth = 50;
+        this.attackDamage = 5;
+
+        this.isIdle = true;
+        this.isAttacking = false;
+
         this.speed = 16;
 
         this.spriteX = 0;
         this.spriteY = 0;
+        this.spriteRow = 0;
+
+        this.shift = 0;
+        this.totalFrames = 4;
+        this.currentFrame = 0;
 
         this.xTile = this.x;
         this.yTile = this.y;
@@ -141,20 +168,33 @@ class Hero {
             left: {},
             top: {}
         };
+
+        this.inventory = []
     }
 };
 
 class Enemy extends Hero {
-    constructor(map, x, y) {
+    constructor(map, x, y, id) {
         super(map, x, y);
 
+        this.id = id;
         this.height = 16;
         this.image = Loader.getImage('monster');
         this.isMoving = false;
         this.speed = 4;
 
+        this.health = 10;
+        this.maxHealth = 10;
+
         this.startX = x;
         this.startY = y;
+
+        var healthbar = document.createElement('progress');
+        healthbar.className = 'healthbar';
+        healthbar.id = 'health' + this.id;
+        topLayer.appendChild(healthbar);
+        this.healthbar = healthbar;
+        this.healthbar.max = this.maxHealth;
 
         this.targetX = Math.floor(Math.random() * (Game.ctx.canvas.width / map.tsize - 1)) + 0;
         this.targetY = Math.floor(Math.random() * (Game.ctx.canvas.height / map.tsize - 1)) + 0;
@@ -207,28 +247,37 @@ function distance(entity) {
 }
 
 Hero.prototype.move = function (delta, dirx, diry) {
+    // check if idle
+    if (dirx == 0 && diry == 0) {
+        this.isIdle = true;
+    } else {
+        this.isIdle = false;
+    }
+
     // if diagonal movement, slow speed down a bit
     if (dirx != 0 && diry != 0) {
         dirx *= 0.707;
         diry *= 0.707;
     }
 
-    // change sprite
-    if (dirx > 0) {
-        this.spriteX = 0;
-        this.spriteY = 32;
-    }
-    if (dirx < 0) {
-        this.spriteX = 0;
-        this.spriteY = 96;
-    }
-    if (diry > 0) {
-        this.spriteX = 0;
-        this.spriteY = 0;
-    }
-    if (diry < 0) {
-        this.spriteX = 0;
-        this.spriteY = 64;
+    // change sprite if not attacking simultanoulsy
+    if (this.isAttacking != true) {
+        if (dirx > 0) {
+            this.spriteX = 0;
+            this.spriteY = 32;
+        }
+        if (dirx < 0) {
+            this.spriteX = 0;
+            this.spriteY = 96;
+        }
+        if (diry > 0) {
+            this.spriteX = 0;
+            this.spriteY = 0;
+        }
+        if (diry < 0) {
+            this.spriteX = 0;
+            this.spriteY = 64;
+        }
     }
 
     // move hero
@@ -268,6 +317,111 @@ Hero.prototype.move = function (delta, dirx, diry) {
     this.radius.y = this.y;
 };
 
+Hero.prototype.render = function () {
+    // draw sprite to canvas
+    Game.ctx.drawImage(this.image, this.shift, this.spriteY, this.width, this.height, this.x * this.width, this.y * this.width, this.width, this.height)
+};
+
+Enemy.prototype.render = function () {
+    // draw sprite to canvas
+    Game.ctx.drawImage(this.image, 146, 0, this.width, this.height, this.x * this.width, this.y * this.height, this.width, this.height);
+
+    // update healthbar
+    this.healthbar.value = this.health;
+    this.healthbar.style.left = this.x * 16 + 8 + "px";
+    this.healthbar.style.top = this.y * 16 + 15 + "px";
+};
+
+Hero.prototype.attack = function (direction) {
+    switch (direction) {
+        case "left":
+            this.spriteY = 224;
+            break;
+        case "right":
+            this.spriteY = 192;
+            break;
+        case "bottom":
+            this.spriteY = 128;
+            break;
+        case "top":
+            this.spriteY = 160;
+            break;
+    };
+
+    this.isAttacking = true;
+    this.shift = 8;
+
+    Game.enemies.forEach(function (enemy) {
+        if (isInsideSector({
+                x: enemy.x + enemy.width / 16 / 2,
+                y: enemy.y + enemy.height / 16 / 2
+            }, {
+                x: Game.hero.x + Game.hero.width / 16 / 2,
+                y: Game.hero.y + Game.hero.height / 16 / 2
+            }, Game.hero.radius.radius / 16, Game.hero.sectors[direction].start, Game.hero.sectors[direction].end)) {
+
+            // perform Attack
+            dealDamage(Game.hero, enemy);
+        }
+
+    });
+
+    // console.log('attack ' + direction);
+};
+
+Hero.prototype.pickUp = function () {
+    Game.lootItems.forEach(function (item, index, object) {
+        if (isInsideRadius({
+                x: item.x + item.width / 16 / 2,
+                y: item.y + item.height / 16 / 2
+            }, {
+                x: Game.hero.x + Game.hero.width / 16 / 2,
+                y: Game.hero.y + Game.hero.height / 16 / 2
+            }, Game.hero.radius.radius / 16)) {
+
+            // put item in inventory and remove from Game.lootItems
+            Game.hero.inventory.push(item);
+            object.splice(index, 1);
+            // console.log(Game.hero.inventory, Game.lootItems);
+        }
+    });
+
+    // update inventory
+    if (this.inventory.length > 0) {
+        inventoryDiv.innerHTML = "Inventory:";
+        inventoryDiv.innerHTML += "<ul>";
+        Game.hero.inventory.forEach(function (item) {
+            inventoryDiv.innerHTML += "<li>" + item.Name + "</li>";
+        });
+        inventoryDiv.innerHTML += "</ul>";
+    }
+}
+
+Hero.prototype.update = function () {
+    if (this.isIdle != true && this.isAttacking != true) {
+        this.currentFrame += 1;
+        if (this.currentFrame > this.totalFrames) {
+            this.shift += this.width;
+            this.currentFrame = 0;
+        }
+        if (this.shift >= this.width * this.totalFrames) {
+            this.shift = 0;
+        }
+    } else if (this.isAttacking) {
+        this.currentFrame += 1;
+        if (this.currentFrame > this.totalFrames) {
+            this.shift += this.width * 2;
+            this.currentFrame = 0;
+        }
+        if (this.shift >= (this.width * 2) * this.totalFrames) {
+            this.shift = 0;
+            this.spriteY = 0;
+            this.isIdle = true;
+            this.isAttacking = false;
+        }
+    }
+};
+
 var Game = {
     mX: 0,
     mY: 0,
@@ -304,20 +458,27 @@ Game.load = function () {
     return [
         Loader.loadImage('tiles', 'assets/overworld.png'),
         Loader.loadImage('character', 'assets/character.png'),
-        Loader.loadImage('monster', 'assets/monsters.png')
+        Loader.loadImage('monster', 'assets/monsters.png'),
+        Loader.loadImage('item', 'assets/objects.png'),
     ];
 };
 
 Game.init = function () {
     Keyboard.listenForEvents(
-        [Keyboard.LEFT, Keyboard.RIGHT, Keyboard.UP, Keyboard.DOWN]);
+        [Keyboard.LEFT, Keyboard.RIGHT, Keyboard.UP, Keyboard.DOWN, Keyboard.E]);
     this.tileAtlas = Loader.getImage('tiles');
 
     this.hero = new Hero(map, (this.ctx.canvas.width / map.tsize - 1) / 2, (this.ctx.canvas.height / map.tsize) / 2);
-    this.hero.radius = new Radius(this.hero.x, this.hero.y, 50);
+    this.hero.radius = new Radius(this.hero.x, this.hero.y, 30);
+
+    this.lootItems = [];
+    for (var i = 0; i < 4; i++) {
+        this.lootItems.push(new Item(i, "item " + i, "items " + i, Math.floor(Math.random() * (this.ctx.canvas.width / map.tsize - 1)) + 0, Math.floor(Math.random() * (this.ctx.canvas.height / map.tsize)) + 0))
+    }
 
     this.enemies = [];
-    this.enemies.push(new Enemy(map, Math.floor(Math.random() * (this.ctx.canvas.width / map.tsize - 1)) + 0, Math.floor(Math.random() * (this.ctx.canvas.height / map.tsize)) + 0));
+    this.enemies.push(new Enemy(map, Math.floor(Math.random() * (this.ctx.canvas.width / map.tsize - 1)) + 0, Math.floor(Math.random() * (this.ctx.canvas.height / map.tsize)) + 0, 1));
+    this.enemies.push(new Enemy(map, Math.floor(Math.random() * (this.ctx.canvas.width / map.tsize - 1)) + 0, Math.floor(Math.random() * (this.ctx.canvas.height / map.tsize)) + 0, 2));
 };
 
 Game.update = function (delta) {
@@ -334,6 +495,10 @@ Game.update = function (delta) {
         diry = -1;
     } else if (Keyboard.isDown(Keyboard.DOWN)) {
         diry = 1;
+    }
+
+    if (Keyboard.isDown(Keyboard.E)) {
+        this.hero.pickUp();
     }
 
     this.hero.move(delta, dirx, diry);
@@ -379,9 +544,6 @@ Game.render = function () {
             }
         }
     }
-
-    // draw hero
-    this.ctx.drawImage(this.hero.image, this.hero.spriteX, this.hero.spriteY, this.hero.width, this.hero.height, this.hero.x * this.hero.width, this.hero.y * this.hero.width, this.hero.width, this.hero.height)
 
     // draw radius
     this.ctx.fillStyle = "rgba(0,0,255,0.3)";
@@ -440,15 +602,53 @@ Game.render = function () {
     };
     this.hero.sectors.top = top;
 
+    //draw items
+    this.lootItems.forEach(function (item) {
+        Game.ctx.drawImage(item.image, 0, 0, item.width, item.height, item.x * item.width, item.y * item.height, item.width, item.height);
+    });
+
     // draw enemies
-    for (var e in this.enemies) {
-        this.ctx.drawImage(this.enemies[e].image, 0, 0, this.enemies[e].width, this.enemies[e].height, this.enemies[e].x * this.enemies[e].width, this.enemies[e].y * this.enemies[e].height, this.enemies[e].width, this.enemies[e].height);
-    }
+    this.enemies.forEach(function (enemy) {
+        enemy.render();
+    });
+
+    // draw hero
+    this.hero.update();
+    this.hero.render();
 }
 
 //
 // start up function
-//
+// 
+
+function dealDamage(dealer, victim) {
+    victim.health -= dealer.attackDamage;
+    if (victim.health <= 0) {
+        for (i = Game.enemies.length - 1; i >= 0; i--) {
+            if (Game.enemies[i].id == victim.id) {
+                Game.enemies[i].healthbar.parentElement.removeChild(Game.enemies[i].healthbar);
+                Game.enemies.splice(i, 1);
+            }
+        }
+    }
+}
+
+function isInsideRadius(point, center, radius) {
+    function areClockwise(center, radius, point2) {
+        var point1 = {
+            x: (center.x + radius),
+            y: (center.y + radius)
+        };
+        return -point1.x * point2.y + point1.y * point2.x > 0;
+    }
+
+    var relPoint = {
+        x: point.x - center.x,
+        y: point.y - center.y
+    };
+
+    return (relPoint.x * relPoint.x + relPoint.y * relPoint.y <= radius * radius);
+}
 
 function isInsideSector(point, center, radius, angle1, angle2) {
     function areClockwise(center, radius, angle, point2) {
@@ -481,20 +681,19 @@ window.onload = function () {
 
     canvas.addEventListener('mousedown', function (event) {
         var mousePos = getMousePos(canvas, event);
-        console.log('Mouse position: ' + Math.floor(mousePos.x / 16) + ',' + Math.floor(mousePos.y / 16));
-        console.log(Game.hero);
+        // console.log('Mouse position: ' + Math.floor(mousePos.x / 16) + ',' + Math.floor(mousePos.y / 16));
+        // console.log(Game.hero);
 
         for (var i in Game.hero.sectors) {
             if (isInsideSector({
                     x: mousePos.x / 16,
                     y: mousePos.y / 16
                 }, {
-                    // x: (Game.hero.radius.x * Game.hero.width + Game.hero.width/2) / 16,
-                    // y: (Game.hero.radius.y * Game.hero.height + Game.hero.height/2) / 16
                     x: Game.hero.x + Game.hero.width / 16 / 2,
                     y: Game.hero.y + Game.hero.height / 16 / 2
                 }, 50, Game.hero.sectors[i].start, Game.hero.sectors[i].end)) {
-                console.log(Game.hero.sectors[i].name + ", mouse x:" + mousePos.x / 16 + ", mouse Y:" + mousePos.y);
+                // console.log(Game.hero.sectors[i].name + ", mouse x:" + mousePos.x / 16 + ", mouse Y:" + mousePos.y / 16);
+                Game.hero.attack(Game.hero.sectors[i].name);
             }
         }
 
